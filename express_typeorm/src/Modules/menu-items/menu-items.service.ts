@@ -86,6 +86,58 @@ export class MenuItemsService {
   */
 
   async getMenuItems() {
-    throw new Error('TODO in task 3');
+    const result = await this.menuItemRepository.query(`
+    WITH RECURSIVE cte AS (
+      SELECT path.id, path.name, path.parentId, ARRAY[id] AS path
+      FROM menu
+      WHERE parentId IS NULL
+    
+      UNION ALL
+    
+      SELECT m.id, m.name, m.parentId, c.level + 1, c.path || m.id
+      FROM menu m
+      JOIN cte c ON c.id = m.parentId
+    )
+    SELECT c1.id, c1.name, c1.parentId, c1.level, c1.path,
+      COALESCE(JSON_AGG(
+        CASE
+          WHEN c2.id IS NOT NULL THEN JSON_OBJECT('id', c2.id, 'name', c2.name, 'parentId', c2.parentId, 'level', c2.level, 'path', c2.path, 'children', c2.children)
+          ELSE NULL
+        END
+      ), '[]') AS children
+    FROM cte c1
+    LEFT JOIN cte c2 ON c1.path <@ c2.path AND c2.level = c1.level + 1
+    GROUP BY c1.id
+    ORDER BY c1.path;
+    
+    `);
+
+    const menuItems = result.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      parentId: row.parentId,
+      children: row.children,
+
+    }));
+
+    const lookup: Record<number, MenuItem> = {};
+  menuItems.forEach((menuItem:any) => {
+    lookup[menuItem.id] = menuItem;
+  });
+
+  // Nest the menu items under their parent
+  const nestedMenuItems: MenuItem[] = [];
+  menuItems.forEach((menuItem:any) => {
+    if (menuItem.parentId) {
+      const parent = lookup[menuItem.parentId];
+      parent.children.push(menuItem);
+    } else {
+      nestedMenuItems.push(menuItem);
+    }
+  });
+
+  return nestedMenuItems;
+
+    
   }
 }

@@ -31,8 +31,61 @@ export class CinemaSystem1663877813247 implements MigrationInterface {
    * As a cinema owner I dont want to configure the seating for every show
    */
   public async up(queryRunner: QueryRunner): Promise<void> {
-    throw new Error('TODO: implement migration in task 4');
+    await queryRunner.query(`
+    CREATE TABLE movie (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        duration INTEGER NOT NULL,
+        description TEXT NOT NULL
+    )
+`);
+
+    await queryRunner.query(`
+    CREATE TABLE show (
+        id SERIAL PRIMARY KEY,
+        movie_id INTEGER NOT NULL,
+        start_time TIMESTAMP NOT NULL,
+        end_time TIMESTAMP NOT NULL,
+        price DECIMAL(10,2) NOT NULL,
+        CONSTRAINT fk_show_movie FOREIGN KEY (movie_id) REFERENCES movie (id)
+    )
+`);
+
+    await queryRunner.query(`
+            CREATE TABLE showroom (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL
+            )
+        `);
+
+    await queryRunner.query(`
+            CREATE TABLE show_seat (
+                id SERIAL PRIMARY KEY,
+                show_id INTEGER NOT NULL,
+                showroom_id INTEGER NOT NULL,
+                seat_number INTEGER NOT NULL,
+                is_vip BOOLEAN NOT NULL DEFAULT false,
+                price_multiplier DECIMAL(5,2) NOT NULL DEFAULT 1,
+                CONSTRAINT fk_show_seat_show FOREIGN KEY (show_id) REFERENCES show (id),
+                CONSTRAINT fk_show_seat_showroom FOREIGN KEY (showroom_id) REFERENCES showroom (id)
+            )
+        `);
+
+    await queryRunner.query(`
+            CREATE TABLE booking (
+                id SERIAL PRIMARY KEY,
+                show_seat_id INTEGER NOT NULL,
+                user_name VARCHAR(255) NOT NULL,
+                CONSTRAINT fk_booking_show_seat FOREIGN KEY (show_seat_id) REFERENCES show_seat (id)
+            )
+        `);
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {}
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP TABLE booking`);
+    await queryRunner.query(`DROP TABLE show_seat`);
+    await queryRunner.query(`DROP TABLE showroom`);
+    await queryRunner.query(`DROP TABLE show`);
+    await queryRunner.query(`DROP TABLE movie`);
+  }
 }
